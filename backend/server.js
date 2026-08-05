@@ -17,12 +17,11 @@ app.get("/", (req, res) => {
 });
 
 // ======================================================
-// LIVE INTEL SOURCES (NEW)
+// LIVE INTEL SOURCES (UPDATED + RECONNECT SAFE)
 // ======================================================
 
 // U.S. State Department Travel Advisories (RSS)
-const TRAVEL_ADVISORY_URL =
-  "https://travel.state.gov/_res/rss/TWs.xml";
+const TRAVEL_ADVISORY_URL = "https://travel.state.gov/_res/rss/TWs.xml";
 
 // Global News Feeds (RSS → JSON via rss2json)
 const NEWS_FEEDS = [
@@ -31,29 +30,43 @@ const NEWS_FEEDS = [
   "https://www.aljazeera.com/xml/rss/all.xml"
 ];
 
-// Helper: fetch RSS via rss2json API
-async function fetchRSS(url) {
+// Safe RSS fetch wrapper
+async function safeRSS(url) {
   try {
     const res = await fetch(
-      `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`
+      `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`,
+      { timeout: 8000 }
     );
     const data = await res.json();
-    return data.items || [];
+
+    if (!data.items || !Array.isArray(data.items)) {
+      console.log("RSS returned no items:", url);
+      return [];
+    }
+
+    return data.items;
   } catch (err) {
-    console.error("RSS error:", url, err);
+    console.error("RSS fetch failed:", url, err);
     return [];
   }
 }
 
 // Normalize travel advisory items
 function normalizeTravel(item) {
+  let severity = "Medium";
+  const title = item.title || "";
+  if (title.includes("Level 4")) severity = "Critical";
+  else if (title.includes("Level 3")) severity = "High";
+  else if (title.includes("Level 2")) severity = "Medium";
+  else if (title.includes("Level 1")) severity = "Low";
+
   return {
     type: "travel-advisory",
-    title: item.title,
-    description: item.description,
-    location: item.title.replace("Travel Advisory:", "").trim(),
-    severity: "medium",
-    timestamp: item.pubDate,
+    title: item.title || "Travel Advisory",
+    description: item.description || "",
+    location: item.title?.replace("Travel Advisory:", "").trim() || "",
+    severity,
+    timestamp: item.pubDate || "",
     lat: null,
     lng: null
   };
@@ -63,46 +76,46 @@ function normalizeTravel(item) {
 function normalizeNews(item) {
   return {
     type: "news",
-    title: item.title,
-    description: item.description,
+    title: item.title || "News",
+    description: item.description || "",
     location: "Global",
-    severity: "low",
-    timestamp: item.pubDate,
+    severity: "Low",
+    timestamp: item.pubDate || "",
     lat: null,
     lng: null
   };
 }
 
 // ======================================================
-// /intel ENDPOINT (REWRITTEN + EXPANDED)
+// /intel ENDPOINT (REWRITTEN + EXPANDED + RECONNECT SAFE)
 // ======================================================
 app.get("/intel", async (req, res) => {
   try {
     // 1. Travel advisories
-    const travelRaw = await fetchRSS(TRAVEL_ADVISORY_URL);
+    const travelRaw = await safeRSS(TRAVEL_ADVISORY_URL);
     const travel = travelRaw.map(normalizeTravel);
 
     // 2. Global news
     let news = [];
     for (const feed of NEWS_FEEDS) {
-      const items = await fetchRSS(feed);
+      const items = await safeRSS(feed);
       news.push(...items.map(normalizeNews));
     }
 
     // Combine all intel
     const incidents = [...travel, ...news];
 
+    // Always return valid JSON
     res.json({
       status: "ok",
       count: incidents.length,
       incidents
     });
-
   } catch (err) {
     console.error("INTEL ERROR:", err);
-    res.status(500).json({
+    res.json({
       status: "error",
-      message: "Failed to load live intelligence"
+      incidents: []
     });
   }
 });
