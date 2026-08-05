@@ -182,9 +182,7 @@
                 <span class="value">Initializing…</span>
             </div>
 
-            <div id="incident-feed">
-                <!-- Incidents will be injected here -->
-            </div>
+            <div id="incident-feed"></div>
 
             <footer>
                 <span>Render static site: warroom-new.onrender.com</span>
@@ -193,43 +191,36 @@
         </section>
     </main>
 
-    <!-- Leaflet JS (preserve this existing include) -->
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!--
-      Inserted script block requested by user.
-      This block is added immediately after the Leaflet include so it can use window.map if the map is already initialized.
-      It is intentionally additive and does not remove or overwrite existing UI elements.
-    -->
+    <!-- =============================== -->
+    <!-- USER-REQUESTED BACKEND LOADER   -->
+    <!-- =============================== -->
     <script>
     // ===============================
     // Backend Intelligence Loader
     // ===============================
 
-    // Your backend URL
     const BACKEND_URL = "https://warroom-backend-inl6.onrender.com/intel";
 
-    // Status updater
     function setStatus(msg) {
         const el = document.getElementById("intel-status");
         if (el) el.innerText = msg;
     }
 
-    // Fetch intelligence from backend
     async function loadIntel() {
         try {
             setStatus("Loading intelligence...");
-
             const res = await fetch(BACKEND_URL);
             const data = await res.json();
-
             console.log("Intel loaded:", data);
-
             setStatus("Intel loaded");
 
             if (data.incidents) {
                 renderIncidents(data.incidents);
                 plotIncidentsOnMap(data.incidents);
+                shadeCountries(data.incidents);
             }
         } catch (err) {
             console.error("Backend unavailable:", err);
@@ -237,11 +228,9 @@
         }
     }
 
-    // Render incident list
     function renderIncidents(incidents) {
         const container = document.getElementById("incident-feed");
         if (!container) return;
-
         container.innerHTML = "";
 
         incidents.forEach((incident) => {
@@ -256,7 +245,6 @@
         });
     }
 
-    // Plot incidents on map
     function plotIncidentsOnMap(incidents) {
         incidents.forEach((incident) => {
             if (!incident.lat || !incident.lng) return;
@@ -269,299 +257,75 @@
                 `);
         });
     }
-
-    // Run on page load
-    // Note: this will run alongside any other loader logic present in the page.
-    // If multiple loaders exist, they will both attempt to fetch and render; that's intentional per your request to not remove existing code.
-    (function runUserLoader() {
-        if (document.readyState === "loading") {
-            document.addEventListener("DOMContentLoaded", loadIntel);
-        } else {
-            loadIntel();
-        }
-    })();
     </script>
 
-    <!-- Existing Backend + UI Logic (preserved and left intact) -->
+    <!-- =============================== -->
+    <!-- MAP + COUNTRY SEVERITY OVERLAY  -->
+    <!-- =============================== -->
     <script>
-        // ===============================
-        // MAP SETUP (preserve original map code if present)
-        // ===============================
-        // If your original code already creates a map variable, this will reuse it.
-        // Otherwise create a new map instance here.
-        (function initializeMap() {
-            try {
-                if (window.map && typeof window.map.setView === "function") {
-                    // map already exists from original code; keep it
-                    console.log("Using existing map instance");
-                } else {
-                    // create a new map instance
-                    const mapEl = document.getElementById("map");
-                    if (mapEl) {
-                        window.map = L.map("map").setView([20, 0], 2);
-                        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                            maxZoom: 18,
-                            attribution: "&copy; OpenStreetMap contributors"
-                        }).addTo(window.map);
-                    } else {
-                        console.warn("Map element not found; skipping map initialization.");
-                    }
+    // Initialize map
+    const map = L.map("map").setView([20, 0], 2);
+    window.map = map;
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(window.map);
+
+    // Severity → Color
+    function getSeverityColor(sev) {
+        if (!sev) return "#444";
+        sev = sev.toLowerCase();
+        if (sev.includes("critical")) return "#ff0000";
+        if (sev.includes("high")) return "#ff6600";
+        if (sev.includes("medium")) return "#ffcc00";
+        if (sev.includes("low")) return "#4caf50";
+        return "#666";
+    }
+
+    // Load world GeoJSON
+    let countryLayer;
+
+    fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json")
+        .then(res => res.json())
+        .then(geo => {
+            countryLayer = L.geoJSON(geo, {
+                style: {
+                    color: "#222",
+                    weight: 1,
+                    fillOpacity: 0.6,
+                    fillColor: "#333"
                 }
-            } catch (e) {
-                console.error("Map initialization error:", e);
-            }
-        })();
+            }).addTo(window.map);
+        });
 
-        // ===============================
-        // BACKEND INTELLIGENCE LOADER
-        // ===============================
-        // This block is intentionally additive: it does not remove or overwrite existing UI elements.
-        (function backendLoader() {
-            const BACKEND_BASE = "https://warroom-backend-inl6.onrender.com";
-            const BACKEND_INTEL = BACKEND_BASE + "/intel";
+    // Shade countries
+    function shadeCountries(incidents) {
+        if (!countryLayer) return;
 
-            // Update header pill
-            function setBackendPill(status, text) {
-                const pill = document.getElementById("backend-status-pill");
-                if (!pill) return;
-                pill.classList.remove("online", "offline");
-                pill.classList.add(status === "online" ? "online" : "offline");
-                pill.textContent = `Backend: ${text}`;
-            }
+        const severityMap = {};
 
-            // Update intel status area
-            function setStatusLocal(msg) {
-                const el = document.querySelector("#intel-status .value");
-                if (el) el.textContent = msg;
-            }
+        incidents.forEach(incident => {
+            if (!incident.location || !incident.severity) return;
+            const country = incident.location.trim();
+            severityMap[country] = incident.severity;
+        });
 
-            // Determine severity CSS class
-            function severityClass(severity) {
-                if (!severity) return "";
-                const s = String(severity).toLowerCase();
-                if (s.includes("high") || s.includes("critical")) return "severity-high";
-                if (s.includes("med")) return "severity-medium";
-                return "severity-low";
-            }
-
-            // Render incidents into the feed container
-            function renderIncidentsLocal(incidents) {
-                const container = document.getElementById("incident-feed");
-                if (!container) return;
-
-                container.innerHTML = "";
-
-                if (!Array.isArray(incidents) || incidents.length === 0) {
-                    container.innerHTML = '<div style="padding:8px;color:#888;font-size:0.85rem;">No incidents returned from backend.</div>';
-                    return;
-                }
-
-                incidents.forEach((incident) => {
-                    const div = document.createElement("div");
-                    div.className = "incident-item " + severityClass(incident.severity);
-
-                    const title = incident.title || incident.name || "Untitled Incident";
-                    const description = incident.description || incident.summary || "No description provided.";
-                    const location = incident.location || incident.place || "Unknown location";
-                    const severity = incident.severity || "Unspecified";
-                    const ts = incident.timestamp || incident.time || incident.date || "";
-
-                    div.innerHTML = `
-                        <h3>${escapeHtml(title)}</h3>
-                        <p>${escapeHtml(description)}</p>
-                        <div class="meta">
-                            <span><strong>Location:</strong> ${escapeHtml(location)}</span><br>
-                            <span><strong>Severity:</strong> ${escapeHtml(severity)}</span>
-                            ${ts ? `<br><span><strong>Time:</strong> ${escapeHtml(ts)}</span>` : ""}
-                        </div>
-                    `;
-                    container.appendChild(div);
-                });
-            }
-
-            // Plot incidents on the map (non-destructive)
-            function plotIncidentsOnMapLocal(incidents) {
-                if (!window.map || typeof window.map.addLayer !== "function") return;
-
-                // Keep a layer group so repeated calls don't duplicate markers
-                if (!window.__incidentLayer) {
-                    window.__incidentLayer = L.layerGroup().addTo(window.map);
-                } else {
-                    window.__incidentLayer.clearLayers();
-                }
-
-                incidents.forEach((incident) => {
-                    const lat = firstDefined(incident.lat, incident.latitude, incident.location_lat, incident.lat_dd);
-                    const lng = firstDefined(incident.lng, incident.longitude, incident.location_lng, incident.lon_dd);
-
-                    if (lat == null || lng == null) return;
-
-                    const marker = L.marker([Number(lat), Number(lng)]);
-                    const popupHtml = `
-                        <strong>${escapeHtml(incident.title || incident.name || "Incident")}</strong><br/>
-                        ${escapeHtml(incident.description || incident.summary || "")}<br/>
-                        <em>${escapeHtml(incident.location || incident.place || "")}</em>
-                    `;
-                    marker.bindPopup(popupHtml);
-                    window.__incidentLayer.addLayer(marker);
-                });
-            }
-
-            // Utility: return first defined value
-            function firstDefined(...args) {
-                for (let v of args) if (v !== undefined && v !== null) return v;
-                return null;
-            }
-
-            // Utility: simple HTML escape to avoid injecting raw HTML
-            function escapeHtml(str) {
-                if (str === null || str === undefined) return "";
-                return String(str)
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")
-                    .replace(/"/g, "&quot;")
-                    .replace(/'/g, "&#039;");
-            }
-
-            // Main loader: fetch from backend and render
-            async function loadIntelLocal() {
-                try {
-                    setStatusLocal("Contacting backend…");
-                    setBackendPill("offline", "connecting…");
-
-                    const resp = await fetch(BACKEND_INTEL, { cache: "no-store" });
-                    if (!resp.ok) {
-                        throw new Error("Upstream returned " + resp.status);
-                    }
-
-                    const payload = await resp.json();
-
-                    // Accept multiple payload shapes: { status, incidents } or raw array
-                    let incidents = [];
-                    if (Array.isArray(payload)) {
-                        incidents = payload;
-                    } else if (Array.isArray(payload.incidents)) {
-                        incidents = payload.incidents;
-                    } else if (Array.isArray(payload.data)) {
-                        incidents = payload.data;
-                    } else {
-                        // try to find a plausible array in payload
-                        for (const key of Object.keys(payload)) {
-                            if (Array.isArray(payload[key])) {
-                                incidents = payload[key];
-                                break;
-                            }
-                        }
-                    }
-
-                    setStatusLocal("Intel loaded");
-                    setBackendPill("online", "online");
-
-                    if (incidents.length) {
-                        renderIncidentsLocal(incidents);
-                        plotIncidentsOnMapLocal(incidents);
-                    } else {
-                        setStatusLocal("No incidents in payload");
-                    }
-                } catch (err) {
-                    console.error("Backend fetch error:", err);
-                    setStatusLocal("⚠ Backend unavailable");
-                    setBackendPill("offline", "offline");
-                }
-            }
-
-            // Auto-refresh logic (optional): fetch every N seconds
-            let refreshInterval = 0; // set to >0 to enable auto-refresh (seconds)
-            let refreshTimer = null;
-
-            function startAutoRefresh(seconds) {
-                if (refreshTimer) clearInterval(refreshTimer);
-                if (!seconds || seconds <= 0) return;
-                refreshTimer = setInterval(loadIntelLocal, seconds * 1000);
-            }
-
-            // Expose a small API for debugging from console without overwriting existing globals
-            window.__warroom = window.__warroom || {};
-            window.__warroom.loadIntel = loadIntelLocal;
-            window.__warroom.setBackendUrl = function(url) {
-                if (typeof url === "string" && url.trim()) {
-                    const newBase = url.replace(/\/+$/, "");
-                    localStorage.setItem("warroom_backend_override", newBase);
-                    location.reload();
-                }
+        countryLayer.setStyle(feature => {
+            const name = feature.properties.name;
+            const sev = severityMap[name];
+            return {
+                fillColor: getSeverityColor(sev),
+                fillOpacity: sev ? 0.75 : 0.25,
+                color: "#222",
+                weight: 1
             };
+        });
+    }
 
-            // If user previously set an override backend URL, use it
-            (function applyOverride() {
-                try {
-                    const override = localStorage.getItem("warroom_backend_override");
-                    if (override) {
-                        window.__warroom.backendOverride = override;
-                    }
-                } catch (e) {
-                    // ignore
-                }
-            })();
-
-            // Wrap loadIntelLocal to respect override if present
-            const originalLoadIntelLocal = loadIntelLocal;
-            async function loadIntelWrapper() {
-                if (window.__warroom && window.__warroom.backendOverride) {
-                    const overrideUrl = (window.__warroom.backendOverride.replace(/\/+$/, "")) + "/intel";
-                    try {
-                        setStatusLocal("Contacting backend (override)…");
-                        setBackendPill("offline", "connecting…");
-
-                        const resp = await fetch(overrideUrl, { cache: "no-store" });
-                        if (!resp.ok) throw new Error("Upstream returned " + resp.status);
-                        const payload = await resp.json();
-
-                        let incidents = [];
-                        if (Array.isArray(payload)) incidents = payload;
-                        else if (Array.isArray(payload.incidents)) incidents = payload.incidents;
-                        else if (Array.isArray(payload.data)) incidents = payload.data;
-                        else {
-                            for (const key of Object.keys(payload)) {
-                                if (Array.isArray(payload[key])) { incidents = payload[key]; break; }
-                            }
-                        }
-
-                        setStatusLocal("Intel loaded (override)");
-                        setBackendPill("online", "online");
-
-                        if (incidents.length) {
-                            renderIncidentsLocal(incidents);
-                            plotIncidentsOnMapLocal(incidents);
-                        } else {
-                            setStatusLocal("No incidents in payload");
-                        }
-                        return;
-                    } catch (err) {
-                        console.error("Override backend fetch error:", err);
-                        // fall through to original loader which uses default BACKEND_INTEL
-                    }
-                }
-                return originalLoadIntelLocal();
-            }
-
-            // Start
-            document.addEventListener("DOMContentLoaded", function() {
-                setTimeout(() => {
-                    loadIntelWrapper();
-                    if (refreshInterval > 0) startAutoRefresh(refreshInterval);
-                }, 150);
-            });
-
-            if (document.readyState === "complete" || document.readyState === "interactive") {
-                setTimeout(() => {
-                    loadIntelWrapper();
-                    if (refreshInterval > 0) startAutoRefresh(refreshInterval);
-                }, 150);
-            }
-        })();
+    // Run backend loader
+    loadIntel();
     </script>
 
-    <!-- Preserve any other original scripts below this line (do not remove) -->
 </body>
 </html>
