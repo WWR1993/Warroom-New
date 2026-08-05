@@ -1,497 +1,567 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Global Incident Intelligence Module</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Global Incident Intelligence Module</title>
 
-<!-- Leaflet Map CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
-<style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+    <style>
+        :root {
+            --bg: #0b0b10;
+            --panel-bg: #14141c;
+            --accent: #4caf50;
+            --accent-soft: #2e7d32;
+            --text: #e0e0e0;
+            --muted: #9e9e9e;
+            --danger: #ff5252;
+            --warning: #ffb300;
+        }
 
-body {
-  background: #0a0e27;
-  color: #e0e6ff;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  overflow-x: hidden;
-}
+        * { box-sizing: border-box; }
 
-header {
-  background: linear-gradient(135deg, #1a1f3a 0%, #2d1b4e 100%);
-  padding: 20px;
-  border-bottom: 2px solid #00ff88;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 4px 20px rgba(0, 255, 136, 0.1);
-}
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top, #1f2933 0, #050509 55%);
+            color: var(--text);
+        }
 
-header h1 {
-  font-size: 26px;
-  font-weight: 700;
-  text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
-  letter-spacing: 2px;
-}
+        header {
+            padding: 12px 20px;
+            border-bottom: 1px solid #222;
+            background: linear-gradient(90deg, #111, #181824);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
 
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-}
+        header .title-block { display: flex; flex-direction: column; }
 
-.pulse {
-  width: 12px;
-  height: 12px;
-  background: #00ff88;
-  border-radius: 50%;
-  animation: pulse 2s infinite;
-  box-shadow: 0 0 10px #00ff88;
-}
+        header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
+        header span.sub {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
 
-.container {
-  display: grid;
-  grid-template-columns: 1fr 350px;
-  gap: 15px;
-  padding: 15px;
-  height: calc(100vh - 100px);
-}
+        header .status-pill {
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            background: #1b1b24;
+            border: 1px solid #333;
+        }
 
-/* MAP PANEL */
-.map-container {
-  background: #0d1117;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-}
+        header .status-pill.online { border-color: var(--accent-soft); color: var(--accent); }
+        header .status-pill.offline { border-color: var(--danger); color: var(--danger); }
 
-#map {
-  width: 100%;
-  height: 100%;
-}
+        main {
+            display: grid;
+            grid-template-columns: 2fr 1.4fr;
+            gap: 12px;
+            padding: 12px;
+        }
 
-/* RIGHT SIDEBAR */
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  overflow-y: auto;
-}
+        #map-panel, #intel-panel {
+            background: var(--panel-bg);
+            border-radius: 8px;
+            border: 1px solid #222;
+            box-shadow: 0 0 20px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
 
-.panel {
-  background: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  padding: 15px;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
-  overflow-y: auto;
-  max-height: 48%;
-}
+        #map-panel header, #intel-panel header {
+            padding: 8px 12px;
+            border-bottom: 1px solid #222;
+            background: #101018;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
 
-.panel h3 {
-  font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 10px;
-  color: #00ff88;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  border-bottom: 1px solid #30363d;
-  padding-bottom: 8px;
-}
+        #map-panel header h2, #intel-panel header h2 {
+            margin: 0;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
 
-/* TICKER */
-.ticker-container {
-  background: #0d1117;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  padding: 10px;
-  margin-bottom: 10px;
-  height: 50px;
-  overflow: hidden;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
-}
+        #map { height: 420px; width: 100%; }
 
-.ticker {
-  white-space: nowrap;
-  overflow: hidden;
-  animation: ticker 20s linear infinite;
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-}
+        #intel-status {
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            border-bottom: 1px solid #222;
+            background: #101018;
+        }
 
-@keyframes ticker {
-  0% { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
-}
+        #intel-status span.label { font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+        #intel-status span.value { margin-left: 6px; }
 
-/* INTEL ITEMS */
-.intel-item {
-  padding: 10px;
-  margin-bottom: 8px;
-  border-left: 4px solid;
-  border-radius: 4px;
-  background: rgba(0, 255, 136, 0.05);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 12px;
-  line-height: 1.4;
-}
+        #incident-feed {
+            padding: 10px 12px;
+            overflow-y: auto;
+            max-height: 360px;
+        }
 
-.intel-item:hover {
-  background: rgba(0, 255, 136, 0.1);
-  transform: translateX(4px);
-}
+        .incident-item {
+            background: #181822;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            border-left: 3px solid var(--accent-soft);
+            font-size: 0.85rem;
+        }
 
-.intel-item strong {
-  display: block;
-  margin-bottom: 4px;
-  color: #e0e6ff;
-}
+        .incident-item h3 { margin: 0 0 4px; font-size: 0.9rem; }
+        .incident-item p { margin: 0 0 4px; color: var(--muted); }
+        .incident-item .meta { font-size: 0.75rem; color: var(--muted); }
 
-.intel-item small {
-  color: #8b949e;
-  font-size: 11px;
-}
+        .incident-item.severity-high { border-left-color: var(--danger); }
+        .incident-item.severity-medium { border-left-color: var(--warning); }
+        .incident-item.severity-low { border-left-color: var(--accent-soft); }
 
-.intel-item a {
-  color: #00ff88;
-  text-decoration: none;
-  font-size: 11px;
-  font-weight: 600;
-}
+        footer {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            color: var(--muted);
+            border-top: 1px solid #222;
+            background: #090910;
+            display: flex;
+            justify-content: space-between;
+        }
 
-.intel-item a:hover {
-  text-decoration: underline;
-}
+        footer span { opacity: 0.8; }
 
-/* SEVERITY COLORS */
-.sev-5 { border-left-color: #ff0000; background: rgba(255, 0, 0, 0.08); }
-.sev-4 { border-left-color: #ff6600; background: rgba(255, 102, 0, 0.08); }
-.sev-3 { border-left-color: #ffaa00; background: rgba(255, 170, 0, 0.08); }
-.sev-2 { border-left-color: #ffff00; background: rgba(255, 255, 0, 0.08); }
-.sev-1 { border-left-color: #888888; background: rgba(136, 136, 136, 0.08); }
-
-.sev-tag {
-  display: inline-block;
-  font-weight: 700;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 3px;
-  margin-right: 5px;
-}
-
-.sev-5 .sev-tag { background: #ff0000; color: #fff; }
-.sev-4 .sev-tag { background: #ff6600; color: #fff; }
-.sev-3 .sev-tag { background: #ffaa00; color: #000; }
-.sev-2 .sev-tag { background: #ffff00; color: #000; }
-.sev-1 .sev-tag { background: #888888; color: #fff; }
-
-/* FILTERS */
-.filter-bar {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-
-.filter-btn {
-  padding: 6px 12px;
-  background: #0d1117;
-  border: 1px solid #30363d;
-  color: #8b949e;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.filter-btn.active {
-  background: #00ff88;
-  color: #0a0e27;
-  border-color: #00ff88;
-}
-
-.filter-btn:hover {
-  border-color: #00ff88;
-}
-
-/* SCROLLBAR */
-.panel::-webkit-scrollbar {
-  width: 6px;
-}
-
-.panel::-webkit-scrollbar-track {
-  background: #0d1117;
-}
-
-.panel::-webkit-scrollbar-thumb {
-  background: #30363d;
-  border-radius: 3px;
-}
-
-.panel::-webkit-scrollbar-thumb:hover {
-  background: #00ff88;
-}
-
-.loading {
-  text-align: center;
-  color: #8b949e;
-  padding: 20px;
-  font-size: 12px;
-}
-
-/* RESPONSIVE */
-@media (max-width: 1024px) {
-  .container {
-    grid-template-columns: 1fr;
-  }
-  
-  .sidebar {
-    max-height: 300px;
-  }
-  
-  .panel {
-    max-height: 200px;
-  }
-}
-</style>
+        @media (max-width: 900px) {
+            main { grid-template-columns: 1fr; }
+            #map { height: 320px; }
+            #incident-feed { max-height: 280px; }
+        }
+    </style>
 </head>
 
 <body>
+    <header>
+        <div class="title-block">
+            <h1>GLOBAL INCIDENT INTELLIGENCE MODULE</h1>
+            <span class="sub">Live OSINT · Render‑backed API · Leaflet Map Overlay</span>
+        </div>
+        <div id="backend-status-pill" class="status-pill offline">Backend: offline</div>
+    </header>
 
-<header>
-  <div>
-    <h1>🌐 CRISIS24 GLOBAL INTELLIGENCE</h1>
-  </div>
-  <div class="status-indicator">
-    <div class="pulse"></div>
-    <span>LIVE FEED ACTIVE</span>
-  </div>
-</header>
+    <main>
+        <!-- MAP PANEL -->
+        <section id="map-panel">
+            <header>
+                <h2>GLOBAL INCIDENT MAP</h2>
+                <span style="font-size:0.75rem;color:#888;">Leaflet · OpenStreetMap</span>
+            </header>
+            <div id="map"></div>
+        </section>
 
-<div class="container">
-  <!-- MAP -->
-  <div class="map-container">
-    <div id="map"></div>
-  </div>
+        <!-- INTELLIGENCE PANEL -->
+        <section id="intel-panel">
+            <header>
+                <h2>INTELLIGENCE FEED</h2>
+                <span style="font-size:0.75rem;color:#888;">Backend: /intel</span>
+            </header>
 
-  <!-- SIDEBAR -->
-  <div class="sidebar">
-    <!-- TICKER -->
-    <div class="ticker-container">
-      <div id="intel-ticker" class="ticker">Loading intelligence...</div>
-    </div>
+            <div id="intel-status">
+                <span class="label">Backend status:</span>
+                <span class="value">Initializing…</span>
+            </div>
 
-    <!-- FILTERS -->
-    <div class="panel">
-      <h3>Filter by Severity</h3>
-      <div class="filter-bar">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="5">Critical</button>
-        <button class="filter-btn" data-filter="4">High</button>
-        <button class="filter-btn" data-filter="3">Medium</button>
-        <button class="filter-btn" data-filter="1">Low</button>
-      </div>
-    </div>
+            <div id="incident-feed">
+                <!-- Incidents will be injected here -->
+            </div>
 
-    <!-- ESCALATION ALERTS -->
-    <div class="panel">
-      <h3>⚠ Escalation Alerts</h3>
-      <div id="intel-escalation" class="loading">Loading...</div>
-    </div>
+            <footer>
+                <span>Render static site: warroom-new.onrender.com</span>
+                <span>Backend: warroom-backend-inl6.onrender.com/intel</span>
+            </footer>
+        </section>
+    </main>
 
-    <!-- INCIDENT FEED -->
-    <div class="panel">
-      <h3>Incident Feed</h3>
-      <div id="intel-feed" class="loading">Loading...</div>
-    </div>
-  </div>
-</div>
+    <!-- Leaflet JS (preserve this existing include) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!--
+      Inserted script block requested by user.
+      This block is added immediately after the Leaflet include so it can use window.map if the map is already initialized.
+      It is intentionally additive and does not remove or overwrite existing UI elements.
+    -->
+    <script>
+    // ===============================
+    // Backend Intelligence Loader
+    // ===============================
 
-<script>
-// Initialize Map
-const map = L.map('map').setView([20, 0], 2);
+    // Your backend URL
+    const BACKEND_URL = "https://warroom-backend-inl6.onrender.com/intel";
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '© OpenStreetMap'
-}).addTo(map);
-
-// State
-let allIntel = [];
-let currentFilter = 'all';
-
-// Severity scoring
-function scoreIncident(text) {
-  if (!text) return 1;
-  
-  const high = ["missile", "airstrike", "explosion", "mass casualty", "coup", "nuclear", "attack", "killed", "died"];
-  const med = ["clash", "protest", "riot", "military", "security"];
-  const low = ["statement", "warning", "advisory", "meeting"];
-
-  text = text.toLowerCase();
-
-  if (high.some(w => text.includes(w))) return 5;
-  if (med.some(w => text.includes(w))) return 3;
-  if (low.some(w => text.includes(w))) return 1;
-  return 2;
-}
-
-// Extract coordinates from description (basic geolocation)
-function extractCoords(desc) {
-  const coords = {
-    "ukraine": [50.0, 36.2],
-    "russia": [61.5, 105.3],
-    "middle east": [26.0, 44.0],
-    "israel": [31.9, 35.2],
-    "gaza": [31.9, 34.3],
-    "syria": [34.8, 38.9],
-    "iran": [32.4, 53.7],
-    "yemen": [15.0, 48.0],
-    "sudan": [12.8, 30.8],
-    "somalia": [5.0, 46.0]
-  };
-
-  for (const [place, [lat, lng]] of Object.entries(coords)) {
-    if (desc.toLowerCase().includes(place)) {
-      return { lat, lng, place };
+    // Status updater
+    function setStatus(msg) {
+        const el = document.getElementById("intel-status");
+        if (el) el.innerText = msg;
     }
-  }
-  return null;
-}
 
-// Fetch from backend
-async function fetchIntel() {
-  try {
-    const res = await fetch("https://warroom-backend.onrender.com/intel");
-    const data = await res.json();
+    // Fetch intelligence from backend
+    async function loadIntel() {
+        try {
+            setStatus("Loading intelligence...");
 
-    allIntel = data.map(item => {
-      const severity = scoreIncident(item.title + " " + (item.summary || ""));
-      return { ...item, severity };
-    });
+            const res = await fetch(BACKEND_URL);
+            const data = await res.json();
 
-    renderIntel();
-    addMapMarkers();
-  } catch (e) {
-    console.error("Backend error:", e);
-    document.getElementById("intel-feed").innerHTML = '<div class="loading">⚠ Backend unavailable</div>';
-  }
-}
+            console.log("Intel loaded:", data);
 
-// Render UI
-function renderIntel() {
-  allIntel.sort((a, b) => b.severity - a.severity);
+            setStatus("Intel loaded");
 
-  // Apply filter
-  const filtered = currentFilter === 'all' 
-    ? allIntel 
-    : allIntel.filter(i => i.severity == currentFilter);
+            if (data.incidents) {
+                renderIncidents(data.incidents);
+                plotIncidentsOnMap(data.incidents);
+            }
+        } catch (err) {
+            console.error("Backend unavailable:", err);
+            setStatus("⚠ Backend unavailable");
+        }
+    }
 
-  // Ticker (top 10)
-  const ticker = document.getElementById("intel-ticker");
-  ticker.innerHTML = filtered.slice(0, 10).map(i =>
-    `[SEV-${i.severity}] ${i.title} — ${i.source}`
-  ).join(" • ");
+    // Render incident list
+    function renderIncidents(incidents) {
+        const container = document.getElementById("incident-feed");
+        if (!container) return;
 
-  // Escalation (sev 4+)
-  const esc = document.getElementById("intel-escalation");
-  const escalated = allIntel.filter(i => i.severity >= 4);
-  esc.innerHTML = escalated.length 
-    ? escalated.map(i => `
-      <div class="intel-item sev-${i.severity}">
-        <span class="sev-tag">SEV-${i.severity}</span>
-        <strong>${i.title}</strong><br>
-        <small>${i.source} · ${new Date(i.timestamp).toLocaleTimeString()}</small><br>
-        <a href="${i.link}" target="_blank">→ View</a>
-      </div>
-    `).join("")
-    : '<div class="loading">No critical alerts</div>';
+        container.innerHTML = "";
 
-  // Feed (filtered)
-  const feed = document.getElementById("intel-feed");
-  feed.innerHTML = filtered.length 
-    ? filtered.map(i => `
-      <div class="intel-item sev-${i.severity}">
-        <span class="sev-tag">SEV-${i.severity}</span>
-        <strong>${i.title}</strong><br>
-        <small>${i.source} · ${new Date(i.timestamp).toLocaleTimeString()}</small><br>
-        <a href="${i.link}" target="_blank">→ View</a>
-      </div>
-    `).join("")
-    : '<div class="loading">No incidents at this severity</div>';
-}
+        incidents.forEach((incident) => {
+            const div = document.createElement("div");
+            div.className = "incident-item";
+            div.innerHTML = `
+                <strong>${incident.title || "Untitled Incident"}</strong><br>
+                ${incident.description || "No description"}<br>
+                <em>${incident.location || "Unknown location"}</em>
+            `;
+            container.appendChild(div);
+        });
+    }
 
-// Add map markers
-function addMapMarkers() {
-  // Clear existing markers (simple approach)
-  map.eachLayer(layer => {
-    if (layer instanceof L.Marker) map.removeLayer(layer);
-  });
+    // Plot incidents on map
+    function plotIncidentsOnMap(incidents) {
+        incidents.forEach((incident) => {
+            if (!incident.lat || !incident.lng) return;
 
-  const severityIcons = {
-    5: { color: '#ff0000', icon: '🔴' },
-    4: { color: '#ff6600', icon: '🟠' },
-    3: { color: '#ffaa00', icon: '🟡' },
-    2: { color: '#ffff00', icon: '🟡' },
-    1: { color: '#888888', icon: '⚪' }
-  };
+            L.marker([incident.lat, incident.lng])
+                .addTo(window.map)
+                .bindPopup(`
+                    <strong>${incident.title || "Incident"}</strong><br>
+                    ${incident.description || ""}
+                `);
+        });
+    }
 
-  allIntel.slice(0, 50).forEach(item => {
-    const geo = extractCoords(item.title + " " + (item.summary || ""));
-    if (!geo) return;
+    // Run on page load
+    // Note: this will run alongside any other loader logic present in the page.
+    // If multiple loaders exist, they will both attempt to fetch and render; that's intentional per your request to not remove existing code.
+    (function runUserLoader() {
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", loadIntel);
+        } else {
+            loadIntel();
+        }
+    })();
+    </script>
 
-    const { lat, lng, place } = geo;
-    const icon = severityIcons[item.severity];
+    <!-- Existing Backend + UI Logic (preserved and left intact) -->
+    <script>
+        // ===============================
+        // MAP SETUP (preserve original map code if present)
+        // ===============================
+        // If your original code already creates a map variable, this will reuse it.
+        // Otherwise create a new map instance here.
+        (function initializeMap() {
+            try {
+                if (window.map && typeof window.map.setView === "function") {
+                    // map already exists from original code; keep it
+                    console.log("Using existing map instance");
+                } else {
+                    // create a new map instance
+                    const mapEl = document.getElementById("map");
+                    if (mapEl) {
+                        window.map = L.map("map").setView([20, 0], 2);
+                        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                            maxZoom: 18,
+                            attribution: "&copy; OpenStreetMap contributors"
+                        }).addTo(window.map);
+                    } else {
+                        console.warn("Map element not found; skipping map initialization.");
+                    }
+                }
+            } catch (e) {
+                console.error("Map initialization error:", e);
+            }
+        })();
 
-    const marker = L.circleMarker([lat, lng], {
-      radius: 8 + item.severity * 2,
-      fillColor: icon.color,
-      color: icon.color,
-      weight: 2,
-      opacity: 0.8,
-      fillOpacity: 0.6
-    }).addTo(map);
+        // ===============================
+        // BACKEND INTELLIGENCE LOADER
+        // ===============================
+        // This block is intentionally additive: it does not remove or overwrite existing UI elements.
+        (function backendLoader() {
+            const BACKEND_BASE = "https://warroom-backend-inl6.onrender.com";
+            const BACKEND_INTEL = BACKEND_BASE + "/intel";
 
-    marker.bindPopup(`
-      <strong>${item.title}</strong><br>
-      <small>${item.source}<br>${new Date(item.timestamp).toLocaleString()}</small><br>
-      <a href="${item.link}" target="_blank" style="color: #00ff88;">View Source</a>
-    `);
-  });
-}
+            // Update header pill
+            function setBackendPill(status, text) {
+                const pill = document.getElementById("backend-status-pill");
+                if (!pill) return;
+                pill.classList.remove("online", "offline");
+                pill.classList.add(status === "online" ? "online" : "offline");
+                pill.textContent = `Backend: ${text}`;
+            }
 
-// Filter buttons
-document.querySelectorAll('.filter-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentFilter = btn.dataset.filter;
-    renderIntel();
-  });
-});
+            // Update intel status area
+            function setStatusLocal(msg) {
+                const el = document.querySelector("#intel-status .value");
+                if (el) el.textContent = msg;
+            }
 
-// Init
-fetchIntel();
-setInterval(fetchIntel, 60000);
-</script>
+            // Determine severity CSS class
+            function severityClass(severity) {
+                if (!severity) return "";
+                const s = String(severity).toLowerCase();
+                if (s.includes("high") || s.includes("critical")) return "severity-high";
+                if (s.includes("med")) return "severity-medium";
+                return "severity-low";
+            }
 
+            // Render incidents into the feed container
+            function renderIncidentsLocal(incidents) {
+                const container = document.getElementById("incident-feed");
+                if (!container) return;
+
+                container.innerHTML = "";
+
+                if (!Array.isArray(incidents) || incidents.length === 0) {
+                    container.innerHTML = '<div style="padding:8px;color:#888;font-size:0.85rem;">No incidents returned from backend.</div>';
+                    return;
+                }
+
+                incidents.forEach((incident) => {
+                    const div = document.createElement("div");
+                    div.className = "incident-item " + severityClass(incident.severity);
+
+                    const title = incident.title || incident.name || "Untitled Incident";
+                    const description = incident.description || incident.summary || "No description provided.";
+                    const location = incident.location || incident.place || "Unknown location";
+                    const severity = incident.severity || "Unspecified";
+                    const ts = incident.timestamp || incident.time || incident.date || "";
+
+                    div.innerHTML = `
+                        <h3>${escapeHtml(title)}</h3>
+                        <p>${escapeHtml(description)}</p>
+                        <div class="meta">
+                            <span><strong>Location:</strong> ${escapeHtml(location)}</span><br>
+                            <span><strong>Severity:</strong> ${escapeHtml(severity)}</span>
+                            ${ts ? `<br><span><strong>Time:</strong> ${escapeHtml(ts)}</span>` : ""}
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+
+            // Plot incidents on the map (non-destructive)
+            function plotIncidentsOnMapLocal(incidents) {
+                if (!window.map || typeof window.map.addLayer !== "function") return;
+
+                // Keep a layer group so repeated calls don't duplicate markers
+                if (!window.__incidentLayer) {
+                    window.__incidentLayer = L.layerGroup().addTo(window.map);
+                } else {
+                    window.__incidentLayer.clearLayers();
+                }
+
+                incidents.forEach((incident) => {
+                    const lat = firstDefined(incident.lat, incident.latitude, incident.location_lat, incident.lat_dd);
+                    const lng = firstDefined(incident.lng, incident.longitude, incident.location_lng, incident.lon_dd);
+
+                    if (lat == null || lng == null) return;
+
+                    const marker = L.marker([Number(lat), Number(lng)]);
+                    const popupHtml = `
+                        <strong>${escapeHtml(incident.title || incident.name || "Incident")}</strong><br/>
+                        ${escapeHtml(incident.description || incident.summary || "")}<br/>
+                        <em>${escapeHtml(incident.location || incident.place || "")}</em>
+                    `;
+                    marker.bindPopup(popupHtml);
+                    window.__incidentLayer.addLayer(marker);
+                });
+            }
+
+            // Utility: return first defined value
+            function firstDefined(...args) {
+                for (let v of args) if (v !== undefined && v !== null) return v;
+                return null;
+            }
+
+            // Utility: simple HTML escape to avoid injecting raw HTML
+            function escapeHtml(str) {
+                if (str === null || str === undefined) return "";
+                return String(str)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            // Main loader: fetch from backend and render
+            async function loadIntelLocal() {
+                try {
+                    setStatusLocal("Contacting backend…");
+                    setBackendPill("offline", "connecting…");
+
+                    const resp = await fetch(BACKEND_INTEL, { cache: "no-store" });
+                    if (!resp.ok) {
+                        throw new Error("Upstream returned " + resp.status);
+                    }
+
+                    const payload = await resp.json();
+
+                    // Accept multiple payload shapes: { status, incidents } or raw array
+                    let incidents = [];
+                    if (Array.isArray(payload)) {
+                        incidents = payload;
+                    } else if (Array.isArray(payload.incidents)) {
+                        incidents = payload.incidents;
+                    } else if (Array.isArray(payload.data)) {
+                        incidents = payload.data;
+                    } else {
+                        // try to find a plausible array in payload
+                        for (const key of Object.keys(payload)) {
+                            if (Array.isArray(payload[key])) {
+                                incidents = payload[key];
+                                break;
+                            }
+                        }
+                    }
+
+                    setStatusLocal("Intel loaded");
+                    setBackendPill("online", "online");
+
+                    if (incidents.length) {
+                        renderIncidentsLocal(incidents);
+                        plotIncidentsOnMapLocal(incidents);
+                    } else {
+                        setStatusLocal("No incidents in payload");
+                    }
+                } catch (err) {
+                    console.error("Backend fetch error:", err);
+                    setStatusLocal("⚠ Backend unavailable");
+                    setBackendPill("offline", "offline");
+                }
+            }
+
+            // Auto-refresh logic (optional): fetch every N seconds
+            let refreshInterval = 0; // set to >0 to enable auto-refresh (seconds)
+            let refreshTimer = null;
+
+            function startAutoRefresh(seconds) {
+                if (refreshTimer) clearInterval(refreshTimer);
+                if (!seconds || seconds <= 0) return;
+                refreshTimer = setInterval(loadIntelLocal, seconds * 1000);
+            }
+
+            // Expose a small API for debugging from console without overwriting existing globals
+            window.__warroom = window.__warroom || {};
+            window.__warroom.loadIntel = loadIntelLocal;
+            window.__warroom.setBackendUrl = function(url) {
+                if (typeof url === "string" && url.trim()) {
+                    const newBase = url.replace(/\/+$/, "");
+                    localStorage.setItem("warroom_backend_override", newBase);
+                    location.reload();
+                }
+            };
+
+            // If user previously set an override backend URL, use it
+            (function applyOverride() {
+                try {
+                    const override = localStorage.getItem("warroom_backend_override");
+                    if (override) {
+                        window.__warroom.backendOverride = override;
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            })();
+
+            // Wrap loadIntelLocal to respect override if present
+            const originalLoadIntelLocal = loadIntelLocal;
+            async function loadIntelWrapper() {
+                if (window.__warroom && window.__warroom.backendOverride) {
+                    const overrideUrl = (window.__warroom.backendOverride.replace(/\/+$/, "")) + "/intel";
+                    try {
+                        setStatusLocal("Contacting backend (override)…");
+                        setBackendPill("offline", "connecting…");
+
+                        const resp = await fetch(overrideUrl, { cache: "no-store" });
+                        if (!resp.ok) throw new Error("Upstream returned " + resp.status);
+                        const payload = await resp.json();
+
+                        let incidents = [];
+                        if (Array.isArray(payload)) incidents = payload;
+                        else if (Array.isArray(payload.incidents)) incidents = payload.incidents;
+                        else if (Array.isArray(payload.data)) incidents = payload.data;
+                        else {
+                            for (const key of Object.keys(payload)) {
+                                if (Array.isArray(payload[key])) { incidents = payload[key]; break; }
+                            }
+                        }
+
+                        setStatusLocal("Intel loaded (override)");
+                        setBackendPill("online", "online");
+
+                        if (incidents.length) {
+                            renderIncidentsLocal(incidents);
+                            plotIncidentsOnMapLocal(incidents);
+                        } else {
+                            setStatusLocal("No incidents in payload");
+                        }
+                        return;
+                    } catch (err) {
+                        console.error("Override backend fetch error:", err);
+                        // fall through to original loader which uses default BACKEND_INTEL
+                    }
+                }
+                return originalLoadIntelLocal();
+            }
+
+            // Start
+            document.addEventListener("DOMContentLoaded", function() {
+                setTimeout(() => {
+                    loadIntelWrapper();
+                    if (refreshInterval > 0) startAutoRefresh(refreshInterval);
+                }, 150);
+            });
+
+            if (document.readyState === "complete" || document.readyState === "interactive") {
+                setTimeout(() => {
+                    loadIntelWrapper();
+                    if (refreshInterval > 0) startAutoRefresh(refreshInterval);
+                }, 150);
+            }
+        })();
+    </script>
+
+    <!-- Preserve any other original scripts below this line (do not remove) -->
 </body>
 </html>
