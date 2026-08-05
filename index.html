@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Global Incident Intelligence Module</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Leaflet Map CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+body {
+  background: #0d1117;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+header {
+  background: #161b22;
+  padding: 15px;
+  text-align: center;
+  font-size: 22px;
+  border-bottom: 1px solid #30363d;
+}
+
+/* PANEL */
+#intel-module {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  padding: 15px;
+  margin: 20px;
+  color: #fff;
+}
+
+#intel-feed, #intel-escalation {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+.intel-item {
+  padding: 8px;
+  border-bottom: 1px solid #30363d;
+}
+
+.sev-5 { border-left: 4px solid #ff0000; }
+.sev-4 { border-left: 4px solid #ff6600; }
+.sev-3 { border-left: 4px solid #ffaa00; }
+.sev-2 { border-left: 4px solid #cccc00; }
+.sev-1 { border-left: 4px solid #999999; }
+
+/* TICKER */
+.ticker {
+  white-space: nowrap;
+  overflow: hidden;
+  box-sizing: border-box;
+  animation: ticker 25s linear infinite;
+  border-bottom: 1px solid #30363d;
+  padding: 5px;
+}
+
+@keyframes ticker {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+/* MAP */
+#map {
+  height: 400px;
+  width: 100%;
+  margin-top: 20px;
+  border: 1px solid #30363d;
+}
+</style>
+</head>
+
+<body>
+
+<header>🌐 Global Incident Intelligence Module</header>
+
+<section id="intel-module">
+  <h2>Real-Time Global Intelligence</h2>
+
+  <!-- Ticker -->
+  <div id="intel-ticker" class="ticker">Loading intelligence...</div>
+
+  <!-- Map -->
+  <h3>Global Map</h3>
+  <div id="map"></div>
+
+  <!-- Feed -->
+  <h3>Incident Feed</h3>
+  <div id="intel-feed"></div>
+
+  <!-- Escalation -->
+  <h3>Escalation Alerts</h3>
+  <div id="intel-escalation"></div>
+</section>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// Initialize Map
+const map = L.map('map').setView([20, 0], 2);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19
+}).addTo(map);
+
+// FREE OSINT SOURCES
+const sources = [
+  "https://reliefweb.int/updates/rss.xml",
+  "https://rsshub.app/liveuamap",
+  "https://rsshub.app/bbc/world",
+  "https://rsshub.app/aljazeera/news",
+];
+
+// Severity scoring
+function scoreIncident(text) {
+  const high = ["missile", "airstrike", "explosion", "mass casualty", "coup", "nuclear"];
+  const med = ["clash", "protest", "riot", "attack"];
+  const low = ["statement", "warning", "advisory"];
+
+  text = text.toLowerCase();
+
+  if (high.some(w => text.includes(w))) return 5;
+  if (med.some(w => text.includes(w))) return 3;
+  if (low.some(w => text.includes(w))) return 1;
+  return 2;
+}
+
+// Fetch + normalize
+async function fetchIntel() {
+  let all = [];
+
+  for (const url of sources) {
+    try {
+      const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${url}`);
+      const data = await res.json();
+
+      if (!data.items) continue;
+
+      data.items.forEach(item => {
+        const sev = scoreIncident(item.title + " " + item.description);
+
+        all.push({
+          source: data.feed.title,
+          title: item.title,
+          link: item.link,
+          summary: item.description,
+          timestamp: item.pubDate
+        });
+      });
+    } catch (e) {
+      console.log("Feed error:", url);
+    }
+  }
+
+  renderIntel(all);
+}
+
+// Render UI
+function renderIntel(all) {
+  all.sort((a,b) => b.severity - a.severity);
+
+  // Ticker
+  const ticker = document.getElementById("intel-ticker");
+  ticker.innerHTML = all.slice(0, 10).map(i =>
+    `[SEV-${i.severity}] ${i.title} — ${i.source}`
+  ).join(" • ");
+
+  // Feed
+  const feed = document.getElementById("intel-feed");
+  feed.innerHTML = all.map(i => `
+    <div class="intel-item sev-${i.severity}">
+      <strong>[SEV-${i.severity}] ${i.title}</strong><br>
+      <small>${i.source} — ${i.timestamp}</small><br>
+      <a href="${i.link}" target="_blank">View Source</a>
+    </div>
+  `).join("");
+
+  // Escalation
+  const esc = document.getElementById("intel-escalation");
+  esc.innerHTML = all.filter(i => i.severity >= 4).map(i => `
+    <div class="intel-item sev-${i.severity}">
+      <strong>⚠ Escalation: ${i.title}</strong><br>
+      <small>${i.source} — ${i.timestamp}</small><br>
+      <a href="${i.link}" target="_blank">View Source</a>
+    </div>
+  `).join("");
+}
+
+// Auto-refresh every 60 seconds
+fetchIntel();
+setInterval(fetchIntel, 60000);
+</script>
+
+</body>
+</html>
