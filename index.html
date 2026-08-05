@@ -9,56 +9,127 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 <style>
-body {
-  background: #0d1117;
-  color: #fff;
-  font-family: Arial, sans-serif;
+* {
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0a0e27;
+  color: #e0e6ff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow-x: hidden;
 }
 
 header {
-  background: #161b22;
-  padding: 15px;
-  text-align: center;
-  font-size: 22px;
-  border-bottom: 1px solid #30363d;
+  background: linear-gradient(135deg, #1a1f3a 0%, #2d1b4e 100%);
+  padding: 20px;
+  border-bottom: 2px solid #00ff88;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(0, 255, 136, 0.1);
 }
 
-/* PANEL */
-#intel-module {
+header h1 {
+  font-size: 26px;
+  font-weight: 700;
+  text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+  letter-spacing: 2px;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.pulse {
+  width: 12px;
+  height: 12px;
+  background: #00ff88;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+  box-shadow: 0 0 10px #00ff88;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.container {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: 15px;
+  padding: 15px;
+  height: calc(100vh - 100px);
+}
+
+/* MAP PANEL */
+.map-container {
   background: #0d1117;
   border: 1px solid #30363d;
-  padding: 15px;
-  margin: 20px;
-  color: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
-#intel-feed, #intel-escalation {
-  max-height: 300px;
+#map {
+  width: 100%;
+  height: 100%;
+}
+
+/* RIGHT SIDEBAR */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
   overflow-y: auto;
-  margin-top: 10px;
 }
 
-.intel-item {
-  padding: 8px;
+.panel {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+  overflow-y: auto;
+  max-height: 48%;
+}
+
+.panel h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #00ff88;
+  text-transform: uppercase;
+  letter-spacing: 1px;
   border-bottom: 1px solid #30363d;
+  padding-bottom: 8px;
 }
-
-.sev-5 { border-left: 4px solid #ff0000; }
-.sev-4 { border-left: 4px solid #ff6600; }
-.sev-3 { border-left: 4px solid #ffaa00; }
-.sev-2 { border-left: 4px solid #cccc00; }
-.sev-1 { border-left: 4px solid #999999; }
 
 /* TICKER */
+.ticker-container {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  height: 50px;
+  overflow: hidden;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+}
+
 .ticker {
   white-space: nowrap;
   overflow: hidden;
-  box-sizing: border-box;
-  animation: ticker 25s linear infinite;
-  border-bottom: 1px solid #30363d;
-  padding: 5px;
+  animation: ticker 20s linear infinite;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
 }
 
 @keyframes ticker {
@@ -66,38 +137,190 @@ header {
   100% { transform: translateX(-100%); }
 }
 
-/* MAP */
-#map {
-  height: 400px;
-  width: 100%;
-  margin-top: 20px;
+/* INTEL ITEMS */
+.intel-item {
+  padding: 10px;
+  margin-bottom: 8px;
+  border-left: 4px solid;
+  border-radius: 4px;
+  background: rgba(0, 255, 136, 0.05);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.intel-item:hover {
+  background: rgba(0, 255, 136, 0.1);
+  transform: translateX(4px);
+}
+
+.intel-item strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #e0e6ff;
+}
+
+.intel-item small {
+  color: #8b949e;
+  font-size: 11px;
+}
+
+.intel-item a {
+  color: #00ff88;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.intel-item a:hover {
+  text-decoration: underline;
+}
+
+/* SEVERITY COLORS */
+.sev-5 { border-left-color: #ff0000; background: rgba(255, 0, 0, 0.08); }
+.sev-4 { border-left-color: #ff6600; background: rgba(255, 102, 0, 0.08); }
+.sev-3 { border-left-color: #ffaa00; background: rgba(255, 170, 0, 0.08); }
+.sev-2 { border-left-color: #ffff00; background: rgba(255, 255, 0, 0.08); }
+.sev-1 { border-left-color: #888888; background: rgba(136, 136, 136, 0.08); }
+
+.sev-tag {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-right: 5px;
+}
+
+.sev-5 .sev-tag { background: #ff0000; color: #fff; }
+.sev-4 .sev-tag { background: #ff6600; color: #fff; }
+.sev-3 .sev-tag { background: #ffaa00; color: #000; }
+.sev-2 .sev-tag { background: #ffff00; color: #000; }
+.sev-1 .sev-tag { background: #888888; color: #fff; }
+
+/* FILTERS */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 6px 12px;
+  background: #0d1117;
   border: 1px solid #30363d;
+  color: #8b949e;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.filter-btn.active {
+  background: #00ff88;
+  color: #0a0e27;
+  border-color: #00ff88;
+}
+
+.filter-btn:hover {
+  border-color: #00ff88;
+}
+
+/* SCROLLBAR */
+.panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel::-webkit-scrollbar-track {
+  background: #0d1117;
+}
+
+.panel::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 3px;
+}
+
+.panel::-webkit-scrollbar-thumb:hover {
+  background: #00ff88;
+}
+
+.loading {
+  text-align: center;
+  color: #8b949e;
+  padding: 20px;
+  font-size: 12px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 1024px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+  
+  .sidebar {
+    max-height: 300px;
+  }
+  
+  .panel {
+    max-height: 200px;
+  }
 }
 </style>
 </head>
 
 <body>
 
-<header>🌐 Global Incident Intelligence Module</header>
+<header>
+  <div>
+    <h1>🌐 CRISIS24 GLOBAL INTELLIGENCE</h1>
+  </div>
+  <div class="status-indicator">
+    <div class="pulse"></div>
+    <span>LIVE FEED ACTIVE</span>
+  </div>
+</header>
 
-<section id="intel-module">
-  <h2>Real-Time Global Intelligence</h2>
+<div class="container">
+  <!-- MAP -->
+  <div class="map-container">
+    <div id="map"></div>
+  </div>
 
-  <!-- Ticker -->
-  <div id="intel-ticker" class="ticker">Loading intelligence...</div>
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <!-- TICKER -->
+    <div class="ticker-container">
+      <div id="intel-ticker" class="ticker">Loading intelligence...</div>
+    </div>
 
-  <!-- Map -->
-  <h3>Global Map</h3>
-  <div id="map"></div>
+    <!-- FILTERS -->
+    <div class="panel">
+      <h3>Filter by Severity</h3>
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="5">Critical</button>
+        <button class="filter-btn" data-filter="4">High</button>
+        <button class="filter-btn" data-filter="3">Medium</button>
+        <button class="filter-btn" data-filter="1">Low</button>
+      </div>
+    </div>
 
-  <!-- Feed -->
-  <h3>Incident Feed</h3>
-  <div id="intel-feed"></div>
+    <!-- ESCALATION ALERTS -->
+    <div class="panel">
+      <h3>⚠ Escalation Alerts</h3>
+      <div id="intel-escalation" class="loading">Loading...</div>
+    </div>
 
-  <!-- Escalation -->
-  <h3>Escalation Alerts</h3>
-  <div id="intel-escalation"></div>
-</section>
+    <!-- INCIDENT FEED -->
+    <div class="panel">
+      <h3>Incident Feed</h3>
+      <div id="intel-feed" class="loading">Loading...</div>
+    </div>
+  </div>
+</div>
 
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -107,22 +330,21 @@ header {
 const map = L.map('map').setView([20, 0], 2);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19
+  maxZoom: 19,
+  attribution: '© OpenStreetMap'
 }).addTo(map);
 
-// FREE OSINT SOURCES
-const sources = [
-  "https://reliefweb.int/updates/rss.xml",
-  "https://rsshub.app/liveuamap",
-  "https://rsshub.app/bbc/world",
-  "https://rsshub.app/aljazeera/news",
-];
+// State
+let allIntel = [];
+let currentFilter = 'all';
 
 // Severity scoring
 function scoreIncident(text) {
-  const high = ["missile", "airstrike", "explosion", "mass casualty", "coup", "nuclear"];
-  const med = ["clash", "protest", "riot", "attack"];
-  const low = ["statement", "warning", "advisory"];
+  if (!text) return 1;
+  
+  const high = ["missile", "airstrike", "explosion", "mass casualty", "coup", "nuclear", "attack", "killed", "died"];
+  const med = ["clash", "protest", "riot", "military", "security"];
+  const low = ["statement", "warning", "advisory", "meeting"];
 
   text = text.toLowerCase();
 
@@ -132,68 +354,141 @@ function scoreIncident(text) {
   return 2;
 }
 
-// Fetch + normalize
-async function fetchIntel() {
-  let all = [];
+// Extract coordinates from description (basic geolocation)
+function extractCoords(desc) {
+  const coords = {
+    "ukraine": [50.0, 36.2],
+    "russia": [61.5, 105.3],
+    "middle east": [26.0, 44.0],
+    "israel": [31.9, 35.2],
+    "gaza": [31.9, 34.3],
+    "syria": [34.8, 38.9],
+    "iran": [32.4, 53.7],
+    "yemen": [15.0, 48.0],
+    "sudan": [12.8, 30.8],
+    "somalia": [5.0, 46.0]
+  };
 
-  for (const url of sources) {
-    try {
-      const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${url}`);
-      const data = await res.json();
-
-      if (!data.items) continue;
-
-      data.items.forEach(item => {
-        const sev = scoreIncident(item.title + " " + item.description);
-
-        all.push({
-          source: data.feed.title,
-          title: item.title,
-          link: item.link,
-          summary: item.description,
-          timestamp: item.pubDate
-        });
-      });
-    } catch (e) {
-      console.log("Feed error:", url);
+  for (const [place, [lat, lng]] of Object.entries(coords)) {
+    if (desc.toLowerCase().includes(place)) {
+      return { lat, lng, place };
     }
   }
+  return null;
+}
 
-  renderIntel(all);
+// Fetch from backend
+async function fetchIntel() {
+  try {
+    const res = await fetch("https://warroom-backend.onrender.com/intel");
+    const data = await res.json();
+
+    allIntel = data.map(item => {
+      const severity = scoreIncident(item.title + " " + (item.summary || ""));
+      return { ...item, severity };
+    });
+
+    renderIntel();
+    addMapMarkers();
+  } catch (e) {
+    console.error("Backend error:", e);
+    document.getElementById("intel-feed").innerHTML = '<div class="loading">⚠ Backend unavailable</div>';
+  }
 }
 
 // Render UI
-function renderIntel(all) {
-  all.sort((a,b) => b.severity - a.severity);
+function renderIntel() {
+  allIntel.sort((a, b) => b.severity - a.severity);
 
-  // Ticker
+  // Apply filter
+  const filtered = currentFilter === 'all' 
+    ? allIntel 
+    : allIntel.filter(i => i.severity == currentFilter);
+
+  // Ticker (top 10)
   const ticker = document.getElementById("intel-ticker");
-  ticker.innerHTML = all.slice(0, 10).map(i =>
+  ticker.innerHTML = filtered.slice(0, 10).map(i =>
     `[SEV-${i.severity}] ${i.title} — ${i.source}`
   ).join(" • ");
 
-  // Feed
-  const feed = document.getElementById("intel-feed");
-  feed.innerHTML = all.map(i => `
-    <div class="intel-item sev-${i.severity}">
-      <strong>[SEV-${i.severity}] ${i.title}</strong><br>
-      <small>${i.source} — ${i.timestamp}</small><br>
-      <a href="${i.link}" target="_blank">View Source</a>
-    </div>
-  `).join("");
-
-  // Escalation
+  // Escalation (sev 4+)
   const esc = document.getElementById("intel-escalation");
-  esc.innerHTML = all.filter(i => i.severity >= 4).map(i => `
-    <div class="intel-item sev-${i.severity}">
-      <strong>⚠ Escalation: ${i.title}</strong><br>
-      <small>${i.source} — ${i.timestamp}</small><br>
-      <a href="${i.link}" target="_blank">View Source</a>
-    </div>
-  `).join("");
+  const escalated = allIntel.filter(i => i.severity >= 4);
+  esc.innerHTML = escalated.length 
+    ? escalated.map(i => `
+      <div class="intel-item sev-${i.severity}">
+        <span class="sev-tag">SEV-${i.severity}</span>
+        <strong>${i.title}</strong><br>
+        <small>${i.source} · ${new Date(i.timestamp).toLocaleTimeString()}</small><br>
+        <a href="${i.link}" target="_blank">→ View</a>
+      </div>
+    `).join("")
+    : '<div class="loading">No critical alerts</div>';
+
+  // Feed (filtered)
+  const feed = document.getElementById("intel-feed");
+  feed.innerHTML = filtered.length 
+    ? filtered.map(i => `
+      <div class="intel-item sev-${i.severity}">
+        <span class="sev-tag">SEV-${i.severity}</span>
+        <strong>${i.title}</strong><br>
+        <small>${i.source} · ${new Date(i.timestamp).toLocaleTimeString()}</small><br>
+        <a href="${i.link}" target="_blank">→ View</a>
+      </div>
+    `).join("")
+    : '<div class="loading">No incidents at this severity</div>';
 }
 
-// Auto-refresh every 60 seconds
+// Add map markers
+function addMapMarkers() {
+  // Clear existing markers (simple approach)
+  map.eachLayer(layer => {
+    if (layer instanceof L.Marker) map.removeLayer(layer);
+  });
+
+  const severityIcons = {
+    5: { color: '#ff0000', icon: '🔴' },
+    4: { color: '#ff6600', icon: '🟠' },
+    3: { color: '#ffaa00', icon: '🟡' },
+    2: { color: '#ffff00', icon: '🟡' },
+    1: { color: '#888888', icon: '⚪' }
+  };
+
+  allIntel.slice(0, 50).forEach(item => {
+    const geo = extractCoords(item.title + " " + (item.summary || ""));
+    if (!geo) return;
+
+    const { lat, lng, place } = geo;
+    const icon = severityIcons[item.severity];
+
+    const marker = L.circleMarker([lat, lng], {
+      radius: 8 + item.severity * 2,
+      fillColor: icon.color,
+      color: icon.color,
+      weight: 2,
+      opacity: 0.8,
+      fillOpacity: 0.6
+    }).addTo(map);
+
+    marker.bindPopup(`
+      <strong>${item.title}</strong><br>
+      <small>${item.source}<br>${new Date(item.timestamp).toLocaleString()}</small><br>
+      <a href="${item.link}" target="_blank" style="color: #00ff88;">View Source</a>
+    `);
+  });
+}
+
+// Filter buttons
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    renderIntel();
+  });
+});
+
+// Init
 fetchIntel();
 setInterval(fetchIntel, 60000);
 </script>
